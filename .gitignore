@@ -1,0 +1,15 @@
+.DS_Store
+.build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+.swiftpm/
+Package.resolved
+*.dmg
+*.iso
+*.pkg
+dist/
+.claude/
+PLAN.md
+TECH_SPEC.md
