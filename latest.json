@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.1.1",
   "url": "https://github.com/fatihyldrm/vBootUSB/releases",
-  "notes": "First release — create bootable USB drives for Windows, VMware ESXi and Linux on macOS."
+  "notes": "Design adjustments."
 }

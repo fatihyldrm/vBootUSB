@@ -636,17 +636,20 @@ private struct AboutView: View {
     @ObservedObject var model: AppModel
     let onClose: () -> Void
 
-    var body: some View {
-        VStack(spacing: 13) {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Theme.accent)
-                .frame(width: 82, height: 82)
-                .overlay(Image(systemName: "bolt.fill").font(.system(size: 40, weight: .bold))
-                    .foregroundStyle(Theme.flash))
-                .shadow(color: Theme.blue.opacity(0.4), radius: 10, y: 4)
+    private var appIcon: NSImage { NSApplication.shared.applicationIconImage ?? NSImage() }
 
-            Text("vBootUSB").font(.system(size: 24, weight: .heavy))
-            Text("Version \(model.currentVersion)").font(.callout).foregroundStyle(.secondary)
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(nsImage: appIcon)
+                .resizable().interpolation(.high)
+                .frame(width: 84, height: 84)
+
+            VStack(spacing: 4) {
+                Text("vBootUSB").font(.system(size: 22, weight: .semibold))
+                Text("Version \(model.currentVersion)")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+
             Text("Create bootable USB drives for Windows, VMware ESXi and Linux on macOS.")
                 .font(.callout).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -654,31 +657,28 @@ private struct AboutView: View {
 
             if model.updateAvailable {
                 Button { model.openURL(model.updateURL) } label: {
-                    Label("Update to v\(model.latestVersion ?? "")", systemImage: "arrow.down.circle.fill")
+                    Text("Update to v\(model.latestVersion ?? "")").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(PrimaryButtonStyle(enabled: true))
+                .buttonStyle(.borderedProminent).controlSize(.large)
             } else {
-                Button { model.checkForUpdates(manual: true) } label: {
-                    Label("Check for Updates", systemImage: "arrow.triangle.2.circlepath")
-                }
+                Button("Check for Updates") { model.checkForUpdates(manual: true) }
+                    .controlSize(.large)
             }
 
-            HStack(spacing: 18) {
-                Button { model.openURL(model.repoURL) } label: {
-                    Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
-                }
-                Button { model.openURL(model.repoURL + "/issues") } label: {
-                    Label("Report an issue", systemImage: "exclamationmark.bubble")
-                }
+            HStack(spacing: 12) {
+                Button("GitHub") { model.openURL(model.repoURL) }
+                Text("·").foregroundStyle(.tertiary)
+                Button("Report an issue") { model.openURL(model.repoURL + "/issues") }
             }
             .font(.caption).buttonStyle(.link)
 
-            Divider().padding(.vertical, 2)
             Text("© 2026 · MIT License").font(.caption2).foregroundStyle(.secondary)
 
-            Button("Close", action: onClose).keyboardShortcut(.cancelAction).padding(.top, 2)
+            Divider()
+
+            Button("Close", action: onClose).keyboardShortcut(.cancelAction)
         }
         .padding(28)
-        .frame(width: 360)
+        .frame(width: 340)
     }
 }
