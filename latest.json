@@ -1,5 +1,7 @@
 {
-  "version": "0.1.1",
+  "version": "0.1.2",
   "url": "https://github.com/fatihyldrm/vBootUSB/releases",
-  "notes": "Design adjustments."
+  "pkg": "https://github.com/fatihyldrm/vBootUSB/releases/download/v0.1.2/vBootUSB-0.1.2.pkg",
+  "sha256": "96b61afbf429e86f884626ce6a56caac508bce7c877a62c79ea1e271d72584d4",
+  "notes": "In-app updater."
 }

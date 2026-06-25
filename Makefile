@@ -1,4 +1,4 @@
-VERSION = 0.1.1
+VERSION = 0.1.2
 APP     = dist/vBootUSB.app
 
 .PHONY: release icon app pkg install uninstall test clean

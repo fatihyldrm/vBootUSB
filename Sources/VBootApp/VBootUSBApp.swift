@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
+import CryptoKit
 import VBootCore
 
 @main
@@ -42,6 +43,8 @@ final class AppModel: ObservableObject {
     @Published var showAbout = false
     @Published var updateAvailable = false
     @Published var latestVersion: String?
+    @Published var latestPkgURL: String?
+    @Published var latestSha256: String?
     @Published var updateURL = "https://github.com/fatihyldrm/vBootUSB/releases"
     let currentVersion = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "0.1.0"
     let repoURL = "https://github.com/fatihyldrm/vBootUSB"
@@ -66,14 +69,77 @@ final class AppModel: ObservableObject {
                 return
             }
             let link = (obj["url"] as? String) ?? "https://github.com/fatihyldrm/vBootUSB/releases"
+            let pkg = obj["pkg"] as? String
+            let sha = obj["sha256"] as? String
             let newer = Self.isNewer(ver, than: cur)
             await MainActor.run {
                 self.latestVersion = ver
                 self.updateURL = link
+                self.latestPkgURL = pkg
+                self.latestSha256 = sha
                 self.updateAvailable = newer
                 if manual && !newer { self.statusText = "You're up to date (v\(cur))." }
             }
         }
+    }
+
+    /// Downloads the latest .pkg, verifies its checksum, installs it (admin) and relaunches.
+    func installUpdate() {
+        guard let pkgStr = latestPkgURL, let pkgURL = URL(string: pkgStr) else {
+            openURL(updateURL); return
+        }
+        showAbout = false
+        isBusy = true; progress = 0; statusText = "Downloading update…"; log = ""
+        let want = latestSha256?.lowercased()
+        let ver = latestVersion ?? ""
+
+        Task.detached {
+            let tmp = NSTemporaryDirectory() + "vBootUSB-update.pkg"
+            do {
+                let (data, resp) = try await URLSession.shared.data(from: pkgURL)
+                if let http = resp as? HTTPURLResponse, http.statusCode != 200 {
+                    throw NSError(domain: "update", code: http.statusCode)
+                }
+                if let want, !want.isEmpty {
+                    let got = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+                    guard got == want else { throw NSError(domain: "checksum", code: 1) }
+                }
+                try data.write(to: URL(fileURLWithPath: tmp))
+            } catch {
+                await MainActor.run {
+                    self.isBusy = false
+                    self.resultSuccess = false
+                    self.log = "Update download/verify failed: \(error)"
+                    self.statusText = "FAILED"
+                    self.showResult = true
+                }
+                return
+            }
+            await MainActor.run { self.statusText = "Installing update… (admin password required)" }
+            let res = Self.runWithAdmin("installer -pkg \(Self.shQuote(tmp)) -target /")
+            await MainActor.run {
+                try? FileManager.default.removeItem(atPath: tmp)
+                self.isBusy = false
+                if res.ok {
+                    self.statusText = "Updated to v\(ver)"
+                    Self.relaunch()
+                } else {
+                    self.resultSuccess = false
+                    self.log = res.output
+                    self.statusText = "FAILED"
+                    self.showResult = true
+                }
+            }
+        }
+    }
+
+    /// Reopens the freshly installed app and quits the current one.
+    nonisolated static func relaunch() {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = ["-c", "sleep 1; open /Applications/vBootUSB.app"]
+        try? p.run()
+        DispatchQueue.main.async { NSApplication.shared.terminate(nil) }
     }
 
     nonisolated static func isNewer(_ a: String, than b: String) -> Bool {
@@ -403,14 +469,14 @@ struct ContentView: View {
     }
 
     private var updateBanner: some View {
-        Button { model.openURL(model.updateURL) } label: {
+        Button { model.installUpdate() } label: {
             HStack(spacing: 8) {
                 Image(systemName: "arrow.down.circle.fill")
                 Text("Update available — v\(model.latestVersion ?? "")")
                     .fontWeight(.semibold)
                 Spacer()
-                Text("Download").fontWeight(.bold)
-                Image(systemName: "arrow.up.forward")
+                Text("Update now").fontWeight(.bold)
+                Image(systemName: "arrow.down.app")
             }
             .font(.callout)
             .foregroundStyle(.white)
@@ -656,7 +722,7 @@ private struct AboutView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             if model.updateAvailable {
-                Button { model.openURL(model.updateURL) } label: {
+                Button { model.installUpdate() } label: {
                     Text("Update to v\(model.latestVersion ?? "")").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent).controlSize(.large)
